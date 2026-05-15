@@ -1,13 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:project/core/services/auth_storage.dart';
 import 'package:provider/provider.dart';
 import '../providers/scan_provider.dart';
 import '../models/scan_model.dart';
-import 'upload_scan_screen.dart'; 
+import 'upload_scan_screen.dart';
 
-class ScanHomeScreen extends StatelessWidget {
+class ScanHomeScreen extends StatefulWidget {
+  @override
+  State<ScanHomeScreen> createState() => _ScanHomeScreenState();
+}
+
+class _ScanHomeScreenState extends State<ScanHomeScreen> {
+  String _userName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final name = await AuthStorage.getUserName();
+    if (mounted) setState(() => _userName = name ?? 'User');
+  }
+
   @override
   Widget build(BuildContext context) {
-    
     return ChangeNotifierProvider(
       create: (_) => ScanProvider()..loadSampleData(),
       child: Consumer<ScanProvider>(
@@ -33,9 +51,7 @@ class ScanHomeScreen extends StatelessWidget {
               actions: [
                 IconButton(
                   icon: Icon(Icons.history, color: Colors.grey[700]),
-                  onPressed: () {
-                    // هنضيف بعدين صفحة السجل
-                  },
+                  onPressed: () {},
                 ),
               ],
             ),
@@ -56,7 +72,7 @@ class ScanHomeScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Alex Johnson',
+                      _userName.toUpperCase(),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -116,7 +132,6 @@ class ScanHomeScreen extends StatelessWidget {
                           SizedBox(height: 20),
                           ElevatedButton(
                             onPressed: () {
-                              
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -149,7 +164,6 @@ class ScanHomeScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 30),
 
-                  
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -161,9 +175,7 @@ class ScanHomeScreen extends StatelessWidget {
                           ),
                         ),
                         TextButton(
-                          onPressed: () {
-                      
-                          },
+                          onPressed: () {},
                           child: Text(
                             'See All',
                             style: TextStyle(
@@ -193,7 +205,7 @@ class ScanHomeScreen extends StatelessWidget {
     );
   }
 
-  //  بطاقة عرض التحليل
+  // Analysis display card
   Widget _buildScanCard(ScanModel scan) {
     Color riskColor;
     switch (scan.riskLevel) {
@@ -227,7 +239,6 @@ class ScanHomeScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          
           Container(
             padding: EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -242,27 +253,20 @@ class ScanHomeScreen extends StatelessWidget {
           ),
           SizedBox(width: 15),
 
-       
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   scan.type,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 SizedBox(height: 4),
                 Text(
                   scan.status == 'completed'
                       ? 'Analyzed • ${_formatDate(scan.date)}'
                       : 'Processing...',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
                 ),
               ],
             ),
@@ -300,17 +304,13 @@ class ScanHomeScreen extends StatelessWidget {
     );
   }
 
-  //  حالة عدم وجود تحاليل
+  // No scans state
   Widget _buildEmptyState() {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 40),
       child: Column(
         children: [
-          Icon(
-            Icons.analytics_outlined,
-            size: 70,
-            color: Colors.grey[300],
-          ),
+          Icon(Icons.analytics_outlined, size: 70, color: Colors.grey[300]),
           SizedBox(height: 15),
           Text(
             'No scans yet',
@@ -323,17 +323,13 @@ class ScanHomeScreen extends StatelessWidget {
           SizedBox(height: 8),
           Text(
             'Upload your first scan to get AI analysis',
-            style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.grey[500], fontSize: 14),
           ),
         ],
       ),
     );
   }
 
- 
   IconData _getScanIcon(String type) {
     if (type.contains('X-Ray')) return Icons.radar;
     if (type.contains('MRI')) return Icons.thirty_fps;
@@ -341,7 +337,6 @@ class ScanHomeScreen extends StatelessWidget {
     return Icons.image;
   }
 
-  
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
   }

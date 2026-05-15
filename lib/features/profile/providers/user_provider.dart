@@ -2,7 +2,16 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 
 class UserProvider extends ChangeNotifier {
-  UserModel _user = UserModel.demoUser;
+  UserModel _user = UserModel(
+    id: '',
+    name: '',
+    email: '',
+    phone: '',
+    dateOfBirth: DateTime(1990),
+    gender: 'Male',
+    appointmentsCount: 0,
+    scansCount: 0,
+  );
 
   UserModel get user => _user;
 

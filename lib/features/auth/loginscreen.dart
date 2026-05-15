@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:project/core/constants/api_constants.dart';
+import 'package:project/core/services/auth_storage.dart';
 import 'package:project/features/auth/forgetpasswordscreen.dart';
 import 'package:project/features/auth/signupscreen.dart';
 import 'package:project/features/home/homedashboardscreen.dart';
@@ -23,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('الرجاء إدخال البريد الإلكتروني وكلمة المرور'),
+          content: Text('Please enter email and password'),
           backgroundColor: Colors.red,
         ),
       );
@@ -43,6 +44,26 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final token = (data['token'] as String? ?? '').trim();
+
+        // Handle data.data.user | data.data.patient | data.data
+        final outer = data['data'];
+        Map<String, dynamic> user;
+        if (outer is Map<String, dynamic>) {
+          final inner = outer['user'] ?? outer['patient'] ?? outer;
+          user = inner is Map<String, dynamic> ? inner : outer;
+        } else {
+          user = {};
+        }
+
+        await AuthStorage.saveSession(
+          token: token,
+          userId: user['_id'] as String? ?? '',
+          name: user['name'] as String? ?? '',
+          email: user['email'] as String? ?? emailController.text.trim(),
+          role: user['role'] as String? ?? 'patient',
+        );
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -53,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(body['message'] ?? 'البريد الإلكتروني أو كلمة المرور غلط'),
+            content: Text(body['message'] ?? 'Email or password is wrong'),
             backgroundColor: Colors.red,
           ),
         );
@@ -62,7 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تأكد من الاتصال بالإنترنت وحاول تاني'),
+          content: Text(
+            'Make sure you are connected to the internet and try again',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -85,13 +108,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 Center(
                   child: Column(
                     children: [
-                      Image.asset(
-                        "assets/images/photo.jpg",
-                        height: 120,
-                      ),
-                      
+                      Image.asset("assets/images/photo.jpg", height: 120),
+
                       const SizedBox(height: 10),
-                      
+
                       const Text(
                         'MediaConnect',
                         style: TextStyle(
@@ -100,22 +120,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Color(0xFF2C3E50),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 5),
-                      
+
                       const Text(
                         'Your Personal Health Assistant',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
                       ),
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 40),
-                
+
                 const Text(
                   'Welcome Back',
                   style: TextStyle(
@@ -124,19 +141,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Color(0xFF2C3E50),
                   ),
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 const Text(
                   'Please sign in to access your secure medical records.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
-                
+
                 const SizedBox(height: 30),
-                
+
                 const Text(
                   'Email or Phone',
                   style: TextStyle(
@@ -144,9 +158,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Color(0xFF2C3E50),
                   ),
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey[300]!),
@@ -156,16 +170,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(horizontal: 15, vertical: 16),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 16,
+                      ),
                       border: InputBorder.none,
                       hintText: 'user@example.com',
-                      prefixIcon: Icon(Icons.email_outlined, color: Colors.grey),
+                      prefixIcon: Icon(
+                        Icons.email_outlined,
+                        color: Colors.grey,
+                      ),
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 const Text(
                   'Password',
                   style: TextStyle(
@@ -173,9 +193,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Color(0xFF2C3E50),
                   ),
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey[300]!),
@@ -185,7 +205,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: passwordController,
                     obscureText: !_isPasswordVisible,
                     decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 16,
+                      ),
                       border: InputBorder.none,
                       hintText: '••••••',
                       hintStyle: const TextStyle(
@@ -193,7 +216,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         fontSize: 20,
                         color: Colors.grey,
                       ),
-                      prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+                      prefixIcon: const Icon(
+                        Icons.lock_outline,
+                        color: Colors.grey,
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _isPasswordVisible
@@ -210,16 +236,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 10),
-                
+
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const ForgotPasswordScreen(),
+                        ),
                       );
                     },
                     child: const Text(
@@ -231,9 +259,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 20),
-                
+
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -256,44 +284,33 @@ class _LoginScreenState extends State<LoginScreen> {
                           )
                         : const Text(
                             'Log In',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                            ),
+                            style: TextStyle(fontSize: 16, color: Colors.white),
                           ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 25),
-                
+
                 Row(
                   children: [
                     Expanded(
-                      child: Divider(
-                        color: Colors.grey[300],
-                        thickness: 1,
-                      ),
+                      child: Divider(color: Colors.grey[300], thickness: 1),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 15),
                       child: Text(
                         'Or continue with',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(color: Colors.grey[600]),
                       ),
                     ),
                     Expanded(
-                      child: Divider(
-                        color: Colors.grey[300],
-                        thickness: 1,
-                      ),
+                      child: Divider(color: Colors.grey[300], thickness: 1),
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 25),
-                
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -305,9 +322,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: const Icon(Icons.g_mobiledata, size: 30),
                     ),
-                    
+
                     const SizedBox(width: 20),
-                    
+
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -318,9 +335,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 30),
-                
+
                 Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -333,7 +350,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const SignUpScreen()),
+                            MaterialPageRoute(
+                              builder: (context) => const SignUpScreen(),
+                            ),
                           );
                         },
                         child: const Text(

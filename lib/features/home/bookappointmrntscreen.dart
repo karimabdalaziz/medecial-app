@@ -1,15 +1,20 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'shared/appointment_manager.dart';
-
+import 'package:http/http.dart' as http;
+import 'package:project/core/constants/api_constants.dart';
+import 'package:project/core/services/auth_storage.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
+  final String doctorId;
   final String doctorName;
   final String specialty;
   final double rating;
   final int reviews;
-  final String? hospital;
+  final String hospital;
 
-  BookAppointmentScreen({
+  const BookAppointmentScreen({
+    super.key,
+    required this.doctorId,
     required this.doctorName,
     required this.specialty,
     this.rating = 4.8,
@@ -18,23 +23,26 @@ class BookAppointmentScreen extends StatefulWidget {
   });
 
   @override
-  _BookAppointmentScreenState createState() => _BookAppointmentScreenState();
+  State<BookAppointmentScreen> createState() => _BookAppointmentScreenState();
 }
 
 class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
-  DateTime _selectedDate = DateTime.now().add(Duration(days: 7));
-  int _selectedSlotIndex = -1;
-  TextEditingController _reasonController = TextEditingController();
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  String? _selectedTime;
+  bool _isLoading = false;
+  final TextEditingController _reasonController = TextEditingController();
 
-  List<Map<String, dynamic>> availableSlots = [
-    {'date': 'Nov 02, 2026', 'time': '02:30 PM', 'clinic': 'Smile Clinic, 123 Main St'},
-    {'date': 'Nov 03, 2026', 'time': '10:00 AM', 'clinic': 'Health Center, 456 Oak St'},
-    {'date': 'Nov 04, 2026', 'time': '03:45 PM', 'clinic': 'Smile Clinic, 123 Main St'},
-    {'date': 'Nov 05, 2026', 'time': '12:30 PM', 'clinic': 'Smile Clinic, 123 Main St'},
-  ];
+  final List<String> _morningTimes = ['09:00 AM', '10:00 AM', '11:30 AM'];
+  final List<String> _afternoonTimes = ['02:00 PM', '03:30 PM', '04:00 PM'];
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
 
   Future<void> _selectDate() async {
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime.now(),
@@ -42,96 +50,115 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: Color(0xFF4A6FFF),
               onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.black,
             ),
-            dialogBackgroundColor: Colors.white,
           ),
           child: child!,
         );
       },
     );
-    
-    if (picked != null && picked != _selectedDate) {
+    if (picked != null) {
       setState(() {
         _selectedDate = picked;
-        _selectedSlotIndex = -1;
+        _selectedTime = null;
       });
     }
   }
 
-  void _showSlotDetails(Map<String, dynamic> slot) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(' Appointment Details', style: TextStyle(color: Color(0xFF4A6FFF))),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Date: ${slot['date']}', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('Time: ${slot['time']}', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('Clinic: ${slot['clinic']}'),
-            SizedBox(height: 8),
-            Text('Doctor: ${widget.doctorName}'),
-            SizedBox(height: 8),
-            Text('Specialty: ${widget.specialty}'),
-            SizedBox(height: 8),
-            Text('Hospital: ${widget.hospital}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: TextStyle(color: Color(0xFF4A6FFF))),
-          ),
-        ],
-      ),
+  String _buildIso() {
+    final parts = _selectedTime!.split(' ');
+    final timeParts = parts[0].split(':');
+    int hour = int.parse(timeParts[0]);
+    final int minute = int.parse(timeParts[1]);
+    if (parts[1] == 'PM' && hour != 12) hour += 12;
+    if (parts[1] == 'AM' && hour == 12) hour = 0;
+    final dt = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      hour,
+      minute,
     );
+    return dt.toUtc().toIso8601String();
   }
 
-  void _cancelSlot(int index) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(' Cancel Appointment', style: TextStyle(color: Colors.red)),
-        content: Text('Are you sure you want to cancel this appointment slot?\n\n${availableSlots[index]['date']} • ${availableSlots[index]['time']}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('No', style: TextStyle(color: Colors.grey)),
+  Future<String?> _fetchPatientId() async {
+    final headers = await AuthStorage.getAuthHeaders();
+    final res = await http.get(Uri.parse(ApiConstants.myProfile), headers: headers);
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final outer = data['data'] as Map<String, dynamic>? ?? {};
+      final p = (outer['patient'] ?? outer['data'] ?? outer) as Map<String, dynamic>;
+      return p['_id'] as String?;
+    }
+    return null;
+  }
+
+  Future<void> _confirmBooking() async {
+    if (_selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a time slot'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+
+    try {
+      final headers = await AuthStorage.getAuthHeaders();
+
+      final patientId = await _fetchPatientId();
+      if (patientId == null || patientId.isEmpty) {
+        if (mounted) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Could not fetch patient info'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      final response = await http.post(
+        Uri.parse(ApiConstants.bookAppointment),
+        headers: headers,
+        body: jsonEncode({
+          'doctor': widget.doctorId,
+          'patient': patientId,
+          'startTime': _buildIso(),
+          if (_reasonController.text.trim().isNotEmpty)
+            'reason': _reasonController.text.trim(),
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Appointment booked successfully!'), backgroundColor: Colors.green),
+        );
+        nav.pop();
+      } else {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(body['message'] as String? ?? 'Booking failed'),
+            backgroundColor: Colors.red,
           ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                availableSlots.removeAt(index);
-                if (_selectedSlotIndex == index) {
-                  _selectedSlotIndex = -1;
-                } else if (_selectedSlotIndex > index) {
-                  _selectedSlotIndex--;
-                }
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Appointment slot cancelled successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: Text('Yes, Cancel'),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Check your internet connection'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -142,10 +169,10 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'Book Appointment',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
@@ -153,13 +180,12 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            //doctooooooor 
               Container(
-                padding: EdgeInsets.all(15),
+                padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
                   color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(15),
@@ -169,36 +195,30 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   children: [
                     CircleAvatar(
                       radius: 30,
-                      backgroundColor: Colors.blue.withOpacity(0.1),
-                      child: Icon(Icons.person, size: 35, color: Colors.blue),
+                      backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                      child: const Icon(Icons.person, size: 35, color: Colors.blue),
                     ),
-                    SizedBox(width: 15),
+                    const SizedBox(width: 15),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             widget.doctorName,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
-                          SizedBox(height: 5),
+                          const SizedBox(height: 5),
                           Text(
                             '${widget.specialty} • ${widget.hospital}',
-                            style: TextStyle(
-                              color: Colors.grey[700],
-                              fontSize: 14,
-                            ),
+                            style: TextStyle(color: Colors.grey[700], fontSize: 14),
                           ),
-                          SizedBox(height: 5),
+                          const SizedBox(height: 5),
                           Row(
                             children: [
-                              Icon(Icons.star, color: Colors.amber, size: 16),
-                              SizedBox(width: 5),
+                              const Icon(Icons.star, color: Colors.amber, size: 16),
+                              const SizedBox(width: 5),
                               Text('${widget.rating}'),
-                              SizedBox(width: 5),
+                              const SizedBox(width: 5),
                               Text(
                                 '| ${widget.reviews} reviews',
                                 style: TextStyle(color: Colors.grey[600], fontSize: 13),
@@ -211,14 +231,13 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   ],
                 ),
               ),
-              SizedBox(height: 25),
-//data selaction
-              Text('Select Date', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 10),
+              const SizedBox(height: 25),
+              const Text('Select Date', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
               GestureDetector(
                 onTap: _selectDate,
                 child: Container(
-                  padding: EdgeInsets.all(15),
+                  padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
                     borderRadius: BorderRadius.circular(12),
@@ -229,121 +248,35 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                     children: [
                       Text(
                         '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                        style: TextStyle(fontSize: 16),
+                        style: const TextStyle(fontSize: 16),
                       ),
-                      Icon(Icons.calendar_today, color: Color(0xFF4A6FFF)),
+                      const Icon(Icons.calendar_today, color: Color(0xFF4A6FFF)),
                     ],
                   ),
                 ),
               ),
-              SizedBox(height: 10),
-              Text(
-                'Selected: ${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                style: TextStyle(color: Color(0xFF4A6FFF), fontWeight: FontWeight.w500),
+              const SizedBox(height: 25),
+              const Text('Morning', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _morningTimes.map((time) => _buildTimeChip(time)).toList(),
               ),
-              SizedBox(height: 25),
-
-              Text('Available Slots', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 15),
-              availableSlots.isEmpty
-                  ? Container(
-                      padding: EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.grey[200]!),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'No available slots for selected date',
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ),
-                    )
-                  : Column(
-                      children: availableSlots.asMap().entries.map((entry) {
-                        int index = entry.key;
-                        Map<String, dynamic> slot = entry.value;
-                        return GestureDetector(
-                          onTap: () => setState(() => _selectedSlotIndex = index),
-                          child: Container(
-                            margin: EdgeInsets.only(bottom: 10),
-                            padding: EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              color: _selectedSlotIndex == index ? Color(0xFF4A6FFF).withOpacity(0.1) : Colors.white,
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(
-                                color: _selectedSlotIndex == index ? Color(0xFF4A6FFF) : Colors.grey[200]!,
-                                width: _selectedSlotIndex == index ? 2 : 1,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text('${slot['date']} • ${slot['time']}', 
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                                    Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text('Available', 
-                                        style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600)),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 8),
-                                Text(slot['clinic'], style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                                SizedBox(height: 10),
-                            
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () {
-                                        _showSlotDetails(slot);
-                                      },
-                                      icon: Icon(Icons.info_outline, size: 16),
-                                      label: Text('Details'),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Color(0xFF4A6FFF),
-                                        side: BorderSide(color: Color(0xFF4A6FFF)),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      ),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: () {
-                                        _cancelSlot(index);
-                                      },
-                                      icon: Icon(Icons.cancel_outlined, size: 16),
-                                      label: Text('Cancel'),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: Colors.red,
-                                        side: BorderSide(color: Colors.red),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-              SizedBox(height: 25),
-
-              // Reason for Visit
-              Text('Reason for Visit', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 10),
+              const SizedBox(height: 20),
+              const Text('Afternoon', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _afternoonTimes.map((time) => _buildTimeChip(time)).toList(),
+              ),
+              const SizedBox(height: 25),
+              const Text('Reason for Visit (optional)',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
               Container(
-                padding: EdgeInsets.all(15),
+                padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
                   color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(15),
@@ -359,20 +292,24 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: 30),
-
-              // Confirm Button
+              const SizedBox(height: 30),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _confirmBooking,
+                  onPressed: _isLoading ? null : _confirmBooking,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF4A6FFF),
+                    backgroundColor: const Color(0xFF4A6FFF),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                    padding: EdgeInsets.symmetric(vertical: 18),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
                   ),
-                  child: Text('Confirm Booking', 
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Confirm Booking',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
@@ -382,78 +319,28 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
     );
   }
 
-  void _confirmBooking() {
-    if (_selectedSlotIndex == -1) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('⚠️ Warning'),
-          content: Text('Please select an appointment slot'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'))],
-        ),
-      );
-      return;
-    }
-
-    if (_reasonController.text.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('⚠️ Warning'),
-          content: Text('Please enter reason for visit'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'))],
-        ),
-      );
-      return;
-    }
-// هحفط الميعاد في class appoiment manger 
-    AppointmentManager.addAppointment(
-      doctorName: widget.doctorName,
-      specialty: widget.specialty,
-      date: availableSlots[_selectedSlotIndex]['date'],
-      time: availableSlots[_selectedSlotIndex]['time'],
-      clinic: availableSlots[_selectedSlotIndex]['clinic'],
-      reason: _reasonController.text,
-    );
-
- 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('✅ Booking Confirmed!', style: TextStyle(color: Colors.green)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Appointment booked with:'),
-            SizedBox(height: 5),
-            Text(widget.doctorName, style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 10),
-            Text('Date: ${availableSlots[_selectedSlotIndex]['date']}'),
-            Text('Time: ${availableSlots[_selectedSlotIndex]['time']}'),
-            Text('Clinic: ${availableSlots[_selectedSlotIndex]['clinic']}'),
-            SizedBox(height: 10),
-            Text('Reason: ${_reasonController.text}'),
-            SizedBox(height: 15),
-            Text('You can view it in "My Appointments"'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context); 
-              Navigator.pop(context); 
-            },
-            child: Text('OK', style: TextStyle(color: Color(0xFF4A6FFF))),
+  Widget _buildTimeChip(String time) {
+    final selected = _selectedTime == time;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedTime = time),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF4A6FFF) : Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? const Color(0xFF4A6FFF) : Colors.grey[300]!,
           ),
-        ],
+        ),
+        child: Text(
+          time,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: selected ? Colors.white : Colors.grey[700],
+          ),
+        ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _reasonController.dispose();
-    super.dispose();
   }
 }

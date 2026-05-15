@@ -10,7 +10,10 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  List<TextEditingController> controllers = List.generate(6, (index) => TextEditingController());
+  List<TextEditingController> controllers = List.generate(
+    6,
+    (index) => TextEditingController(),
+  );
   List<FocusNode> focusNodes = List.generate(6, (index) => FocusNode());
   int _remainingTime = 30;
   bool _canResend = false;
@@ -43,10 +46,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
         _canResend = false;
       });
       _startTimer();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تم إعادة إرسال كود التحقق'),
+          content: Text('Verification code resent'),
           backgroundColor: Colors.green,
         ),
       );
@@ -58,13 +61,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
     for (var controller in controllers) {
       code += controller.text;
     }
-    
+
     if (code.length == 6) {
-      print('الكود المدخل: $code');
+      print('Entered code: $code');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('الرجاء إدخال جميع الخانات'),
+          content: Text('Please enter all fields'),
           backgroundColor: Colors.red,
         ),
       );
@@ -97,10 +100,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         ),
         title: const Text(
           'Verification Code',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ),
       body: SafeArea(
@@ -111,16 +111,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 20),
-                
-                
+
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
                     children: [
-                      const TextSpan(text: 'We have sent the verification code to your email address\n'),
+                      const TextSpan(
+                        text:
+                            'We have sent the verification code to your email address\n',
+                      ),
                       TextSpan(
                         text: widget.email,
                         style: const TextStyle(
@@ -131,17 +130,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 40),
-                
-                
+
                 Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(6, (index) {
                       return Container(
-                        width: 45, 
-                        height: 55, 
+                        width: 45,
+                        height: 55,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey[300]!),
@@ -154,26 +152,32 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           keyboardType: TextInputType.number,
                           maxLength: 1,
                           style: const TextStyle(
-                            fontSize: 20, 
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Colors.black,
                           ),
                           decoration: const InputDecoration(
                             counterText: '',
                             border: InputBorder.none,
-                            contentPadding: EdgeInsets.only(bottom: 2), 
+                            contentPadding: EdgeInsets.only(bottom: 2),
                           ),
                           onChanged: (value) {
                             if (value.isNotEmpty && index < 5) {
-                              FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+                              FocusScope.of(
+                                context,
+                              ).requestFocus(focusNodes[index + 1]);
                             }
                             if (value.isEmpty && index > 0) {
-                              FocusScope.of(context).requestFocus(focusNodes[index - 1]);
+                              FocusScope.of(
+                                context,
+                              ).requestFocus(focusNodes[index - 1]);
                             }
-                          
+
                             if (value.isNotEmpty && index < 5) {
                               Future.delayed(Duration.zero, () {
-                                FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+                                FocusScope.of(
+                                  context,
+                                ).requestFocus(focusNodes[index + 1]);
                               });
                             }
                           },
@@ -182,41 +186,44 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     }),
                   ),
                 ),
-                
+
                 const SizedBox(height: 30),
-                
-                
+
                 Center(
                   child: Column(
                     children: [
-                  
-                     Row(
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
                             'Resend code in: ',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                            ),
+                            style: TextStyle(color: Colors.grey[600]),
                           ),
                           Text(
                             '00:${_remainingTime.toString().padLeft(2, '0')}',
                             style: TextStyle(
-                              color: _remainingTime > 0 ? const Color(0xFF4285F4) : Colors.green,
+                              color: _remainingTime > 0
+                                  ? const Color(0xFF4285F4)
+                                  : Colors.green,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 10),
-                      
-                     //زرار الresend يرجع يتفعل بعد ماالوقت يخلص
+
+                      // The resend button becomes active after the time is up
                       TextButton(
                         onPressed: _canResend ? _resendCode : null,
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-                          backgroundColor: _canResend ? const Color(0xFF4285F4).withOpacity(0.1) : Colors.transparent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 30,
+                            vertical: 10,
+                          ),
+                          backgroundColor: _canResend
+                              ? const Color(0xFF4285F4).withOpacity(0.1)
+                              : Colors.transparent,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -224,7 +231,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         child: Text(
                           'Resend Code',
                           style: TextStyle(
-                            color: _canResend ? const Color(0xFF4285F4) : Colors.grey,
+                            color: _canResend
+                                ? const Color(0xFF4285F4)
+                                : Colors.grey,
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
@@ -233,10 +242,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 50),
-                
-                // زرار الveriiffy
+
+                // Verify button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -250,10 +259,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ),
                     child: const Text(
                       'Verify',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white,
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.white),
                     ),
                   ),
                 ),

@@ -1,8 +1,7 @@
-
 class AppointmentManager {
   static List<Map<String, dynamic>> appointments = [];
-  
-  //  دالة لإضافة موعد جديد
+
+  // Function to add a new appointment
   static void addAppointment({
     required String doctorName,
     required String specialty,
@@ -21,31 +20,31 @@ class AppointmentManager {
       'reason': reason,
       'status': 'confirmed',
     });
-    
+
     print('📅 Appointment added. Total: ${appointments.length}'); // للتتبع
   }
-  
-  //  دالة تجيب  المواعيد القادمة
+
+  // Function that gets upcoming appointments
   static List<Map<String, dynamic>> getUpcomingAppointments() {
     return appointments.where((app) => app['status'] == 'confirmed').toList();
   }
-  
-  //  دالة تجيب المواعيد السابقة
+
+  // Function that gets past appointments
   static List<Map<String, dynamic>> getPastAppointments() {
     return appointments.where((app) => app['status'] != 'confirmed').toList();
   }
-  
-  //  دالة جديدة: عدد المواعيد الكلي
+
+  // New function: total appointments count
   static int getTotalAppointmentsCount() {
     return appointments.length;
   }
-  
-  // دالة جديدة: عدد المواعيد النشطة (Confirmed)
+
+  // New function: number of active appointments (Confirmed)
   static int getActiveAppointmentsCount() {
     return appointments.where((app) => app['status'] == 'confirmed').length;
   }
-  
-  // دالة جديدة: عدد المواعيد الي اتلغت 
+
+  // New function: number of canceled appointments
   static int getInactiveAppointmentsCount() {
     return appointments.where((app) => app['status'] != 'confirmed').length;
   }

@@ -1,71 +1,93 @@
-
-
 class ScanResultModel {
-  final String id;
   final String scanType;
-  final DateTime scanDate;
   final String imagePath;
-  final String notes;
-  final String riskLevel; 
-  final double confidenceScore;
-  final List<Finding> findings;
-  final String recommendation;
+  final String predictedClass;
+  final String predictedName;
+  final double confidence;
+  final String severity;
+  final Map<String, double> allProbabilities;
+  final String description;
+  final List<String> recommendations;
+  final List<String> emergencySigns;
+  final List<String> preventionTips;
+  final String? maskImageBase64;
+  final String? overlayImageBase64;
+  final double? heartAreaPercent;
+  final String? assessment;
   final DateTime analysisDate;
 
   ScanResultModel({
-    required this.id,
     required this.scanType,
-    required this.scanDate,
     required this.imagePath,
-    required this.notes,
-    required this.riskLevel,
-    required this.confidenceScore,
-    required this.findings,
-    required this.recommendation,
+    required this.predictedClass,
+    required this.predictedName,
+    required this.confidence,
+    required this.severity,
+    required this.allProbabilities,
+    required this.description,
+    required this.recommendations,
+    required this.emergencySigns,
+    required this.preventionTips,
+    this.maskImageBase64,
+    this.overlayImageBase64,
+    this.heartAreaPercent,
+    this.assessment,
     required this.analysisDate,
   });
 
-  
-  factory ScanResultModel.demoResult({required String scanType}) {
+  factory ScanResultModel.fromApiResponse(
+    Map<String, dynamic> json,
+    String scanType,
+    String imagePath,
+  ) {
+    final diseaseInfo = json['disease_info'] as Map<String, dynamic>? ?? {};
+    final segmentation = json['segmentation'] as Map<String, dynamic>?;
+
+    final rawProbs = json['all_probabilities'] as Map<String, dynamic>? ?? {};
+    final probs = rawProbs.map((k, v) => MapEntry(k, (v as num).toDouble()));
+
+    final confidence = (json['confidence'] as num?)?.toDouble() ?? 0.0;
+    String severity = json['severity'] as String? ?? '';
+    if (severity.isEmpty) {
+      if (confidence >= 85) {
+        severity = 'high';
+      } else if (confidence >= 60) {
+        severity = 'medium';
+      } else {
+        severity = 'low';
+      }
+    }
+
+    final predictedClass = json['predicted_class'] as String?
+        ?? json['assessment'] as String?
+        ?? 'Unknown';
+
     return ScanResultModel(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
       scanType: scanType,
-      scanDate: DateTime.now(),
-      imagePath: '',
-      notes: '',
-      riskLevel: 'low',
-      confidenceScore: 98,
-      findings: [
-        Finding(
-          title: 'Regular Edges',
-          description: 'The lesion boundaries appear well-defined and regular, a positive indicator.',
-          isPositive: true,
-        ),
-        Finding(
-          title: 'Uniform Pigmentation',
-          description: 'Color distribution across the area is consistent with no concerning variations.',
-          isPositive: true,
-        ),
-        Finding(
-          title: 'No Inflammation',
-          description: 'Surrounding tissue shows no signs of active inflammation or redness.',
-          isPositive: true,
-        ),
-      ],
-      recommendation: 'Based on this analysis, a routine check-up is recommended in 6 months. Monitor for any changes in size or color.',
+      imagePath: imagePath,
+      predictedClass: predictedClass,
+      predictedName: diseaseInfo['disease_name'] as String? ?? predictedClass,
+      confidence: confidence,
+      severity: severity,
+      allProbabilities: probs,
+      description: diseaseInfo['description'] as String? ?? '',
+      recommendations: (diseaseInfo['recommendations'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      emergencySigns: (diseaseInfo['emergency_signs'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      preventionTips: (diseaseInfo['prevention_tips'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      maskImageBase64: segmentation?['mask_image_base64'] as String?,
+      overlayImageBase64: segmentation?['overlay_image_base64'] as String?,
+      heartAreaPercent: (json['heart_area_ratio_percent'] as num?)?.toDouble(),
+      assessment: json['assessment'] as String?,
       analysisDate: DateTime.now(),
     );
   }
-}
-
-class Finding {
-  final String title;
-  final String description;
-  final bool isPositive;
-
-  Finding({
-    required this.title,
-    required this.description,
-    this.isPositive = true,
-  });
 }

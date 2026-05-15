@@ -1,20 +1,24 @@
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'result_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:project/core/constants/api_constants.dart';
 import '../models/scan_result_model.dart';
+import 'result_screen.dart';
 
 class ProcessingScreen extends StatefulWidget {
   final String scanType;
   final String imagePath;
-  final String notes;
-  final DateTime scanDate;
+  final int? age;
+  final String? gender;
+  final String? symptoms;
 
   const ProcessingScreen({
     Key? key,
     required this.scanType,
     required this.imagePath,
-    required this.notes,
-    required this.scanDate,
+    this.age,
+    this.gender,
+    this.symptoms,
   }) : super(key: key);
 
   @override
@@ -25,24 +29,86 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
   @override
   void initState() {
     super.initState();
-    
-    //  وقت المعالجة 3 ثواني
-    Future.delayed(Duration(seconds: 3), () {
-      if (mounted) {
-        // تيست نتيجه تجريبيه مش حقيقيه
-        ScanResultModel demoResult = ScanResultModel.demoResult(
-          scanType: widget.scanType,
+    _analyseImage();
+  }
+
+  String _endpointFor(String scanType) {
+    switch (scanType) {
+      case 'Brain Tumor Scan':   return ApiConstants.aiBrain;
+      case 'Skin Cancer Scan':   return ApiConstants.aiSkin;
+      case 'Breast Cancer Scan': return ApiConstants.aiBreast;
+      case 'Eye Scan':           return ApiConstants.aiEye;
+      case 'Lung Cancer Scan':   return ApiConstants.aiLung;
+      case 'Heart Scan':         return ApiConstants.aiHeart;
+      case 'Kidney Scan':        return ApiConstants.aiKidney;
+      default:                   return ApiConstants.aiSkin;
+    }
+  }
+
+  Future<void> _analyseImage() async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse(_endpointFor(widget.scanType)),
+      );
+
+      request.files.add(
+        await http.MultipartFile.fromPath('file', widget.imagePath),
+      );
+
+      if (widget.age != null) {
+        request.fields['age'] = widget.age.toString();
+      }
+      if (widget.gender != null && widget.gender!.isNotEmpty) {
+        request.fields['gender'] = widget.gender!;
+      }
+      if (widget.symptoms != null && widget.symptoms!.isNotEmpty) {
+        request.fields['symptoms'] = widget.symptoms!;
+      }
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final result = ScanResultModel.fromApiResponse(
+          json,
+          widget.scanType,
+          widget.imagePath,
         );
-        
-        // يوديني لصفحه ال result
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => ResultScreen(result: demoResult),
-          ),
+          MaterialPageRoute(builder: (_) => ResultScreen(result: result)),
         );
+      } else {
+        _showError('Analysis failed (${response.statusCode})');
       }
-    });
+    } catch (e) {
+      if (mounted) _showError('Check your internet connection');
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('Go Back'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -52,86 +118,52 @@ class _ProcessingScreenState extends State<ProcessingScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Processing',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
+        automaticallyImplyLeading: false,
+        title: const Text('Analysing...',
+            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Center(
         child: Padding(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(30),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 100,
-                height: 100,
+                width: 110,
+                height: 110,
                 decoration: BoxDecoration(
-                  color: Color(0xFF4A6FFF).withOpacity(0.1),
+                  color: const Color(0xFF4A6FFF).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Center(
+                child: const Center(
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A6FFF)),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Color(0xFF4A6FFF)),
                     strokeWidth: 4,
                   ),
                 ),
               ),
-              
-              SizedBox(height: 40),
-              
-           
+              const SizedBox(height: 36),
               Text(
-                'Analyzing your ${widget.scanType}...',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                'Analysing your ${widget.scanType}...',
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87),
                 textAlign: TextAlign.center,
               ),
-              
-              SizedBox(height: 15),
-              
-              // رسالة الانتظار
+              const SizedBox(height: 12),
               Text(
-                'This may take 10-15 seconds',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-              
-              SizedBox(height: 40),
-              
-              // Progress bar
-              Container(
-                width: 250,
-                child: LinearProgressIndicator(
-                  backgroundColor: Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4A6FFF)),
-                ),
-              ),
-              
-              SizedBox(height: 20),
-              
-              //الاقتراح
-              Text(
-                'High resolution scans may take slightly longer',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[500],
-                ),
+                'AI models are processing the image.\nThis may take 15–30 seconds.',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 36),
+              LinearProgressIndicator(
+                backgroundColor: Colors.grey[200],
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFF4A6FFF)),
               ),
             ],
           ),

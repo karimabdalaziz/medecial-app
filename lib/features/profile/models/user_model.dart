@@ -1,4 +1,3 @@
-
 class UserModel {
   final String id;
   final String name;
@@ -9,6 +8,8 @@ class UserModel {
   final String gender;
   final int appointmentsCount;
   final int scansCount;
+  final String bloodType;
+  final String address;
 
   UserModel({
     required this.id,
@@ -20,6 +21,8 @@ class UserModel {
     required this.gender,
     required this.appointmentsCount,
     required this.scansCount,
+    this.bloodType = '',
+    this.address = '',
   });
 
   int get age {
@@ -30,33 +33,5 @@ class UserModel {
       age--;
     }
     return age;
-  }
-
-  static UserModel get demoUser {
-    return UserModel(
-      id: '1',
-      name: 'Ahmed Magdy',
-      email: 'ahmed.magdy@email.com',
-      phone: '+20 123 456 7890',
-      profileImageUrl: 'https://randomuser.me/api/portraits/men/32.jpg',
-      dateOfBirth: DateTime(1995, 5, 15),
-      gender: 'Male',
-      appointmentsCount: 12,
-      scansCount: 8,
-    );
-  }
-
-  static UserModel get demoUserFemale {
-    return UserModel(
-      id: '2',
-      name: 'Sara Ahmed',
-      email: 'sara.ahmed@email.com',
-      phone: '+20 123 456 7891',
-      profileImageUrl: 'https://randomuser.me/api/portraits/women/44.jpg',
-      dateOfBirth: DateTime(1998, 8, 22),
-      gender: 'Female',
-      appointmentsCount: 8,
-      scansCount: 5,
-    );
   }
 }

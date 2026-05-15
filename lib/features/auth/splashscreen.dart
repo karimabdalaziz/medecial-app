@@ -26,11 +26,7 @@ class _SplashScreenState extends State<Splashscreen> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFFF8F9FA),
-            ),
-          ),
+          Positioned.fill(child: Container(color: const Color(0xFFF8F9FA))),
 
           Center(
             child: Column(
@@ -82,10 +78,7 @@ class _SplashScreenState extends State<Splashscreen> {
 
                 const SizedBox(height: 15),
 
-                const Text(
-                  'جاري التحميل...',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                const Text('Loading...', style: TextStyle(color: Colors.grey)),
               ],
             ),
           ),

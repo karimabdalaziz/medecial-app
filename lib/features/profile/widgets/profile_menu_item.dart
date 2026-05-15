@@ -34,7 +34,7 @@ class ProfileMenuItem extends StatelessWidget {
           leading: Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha:0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: iconColor, size: 22),
@@ -58,7 +58,7 @@ class ProfileMenuItem extends StatelessWidget {
                     }
                   },
                   activeColor: iconColor,
-                  activeTrackColor: iconColor.withOpacity(0.3),
+                  activeTrackColor: iconColor.withValues(alpha:0.3),
                 )
               : Icon(
                   Icons.arrow_forward_ios,

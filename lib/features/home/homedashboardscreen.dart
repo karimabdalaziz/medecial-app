@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:project/core/services/auth_storage.dart';
+import 'package:project/features/chat/chat_screen.dart';
+import 'package:project/features/home/medical_history_screen.dart';
 import 'package:project/features/home/doctorlistscreen.dart';
 import 'package:project/features/home/myappoimentscreen.dart';
 import 'package:project/features/profile/screens/profile_screen.dart';
@@ -13,6 +16,18 @@ class HomeDashboardScreen extends StatefulWidget {
 
 class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   int _currentIndex = 0;
+  String _userName = 'Loading...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final name = await AuthStorage.getUserName();
+    if (mounted) setState(() => _userName = name ?? 'User');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +62,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             ),
                           ),
                           Text(
-                            'bayoko saka ',
+                            _userName,
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
@@ -68,74 +83,82 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     ),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'AI Health Assistant',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChatScreen(),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'AI Health Assistant',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Feeling unwell? Chat now for a quick symptom check.',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 14,
+                              SizedBox(height: 8),
+                              Text(
+                                'Feeling unwell? Chat now for a quick symptom check.',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 15),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Ask Dr. AI',
-                                    style: TextStyle(
-                                      color: Color(0xFF4A6FFF),
-                                      fontWeight: FontWeight.bold,
+                              SizedBox(height: 15),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Ask Dr. AI',
+                                      style: TextStyle(
+                                        color: Color(0xFF4A6FFF),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(width: 5),
-                                  Icon(
-                                    Icons.arrow_forward,
-                                    color: Color(0xFF4A6FFF),
-                                  ),
-                                ],
+                                    SizedBox(width: 5),
+                                    Icon(
+                                      Icons.arrow_forward,
+                                      color: Color(0xFF4A6FFF),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 15),
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
+                        SizedBox(width: 15),
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.health_and_safety,
+                            color: Colors.white,
+                            size: 30,
+                          ),
                         ),
-                        child: Icon(
-                          Icons.health_and_safety,
-                          color: Colors.white,
-                          size: 30,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 25),
@@ -230,6 +253,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                               builder: (context) => Myappoimentscreen(),
                             ),
                           );
+                        } else if (index == 2) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const MedicalHistoryScreen(),
+                            ),
+                          );
                         } else if (index == 3) {
                           Navigator.push(
                             context,
@@ -237,12 +268,18 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                               builder: (context) => ScanHomeScreen(),
                             ),
                           );
+                        } else if (index == 4) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ChatScreen(),
+                            ),
+                          );
                         } else {
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: Text('مستنيين الفرج'),
-
+                              title: Text('Coming Soon'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context),
@@ -260,7 +297,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                           borderRadius: BorderRadius.circular(15),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
+                              color: Colors.grey.withValues(alpha: 0.1),
                               blurRadius: 10,
                               offset: Offset(0, 5),
                             ),
@@ -272,7 +309,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             Container(
                               padding: EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: items[index]['color'].withOpacity(0.1),
+                                color: items[index]['color'].withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(
@@ -315,7 +354,6 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             _currentIndex = index;
           });
 
-        
           if (index == 1) {
             Navigator.push(
               context,
@@ -326,18 +364,14 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               });
             });
           }
-          // Profile (index 2) - ✅ منغير اني اعرف اعدي  الدالة
+          // Profile (index 2) - ✅ Without knowing how to pass the function
           else if (index == 2) {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    const ProfileScreen(), 
-              ),
+              MaterialPageRoute(builder: (context) => const ProfileScreen()),
             ).then((_) {
-              setState(() {
-                _currentIndex = 0;
-              });
+              setState(() => _currentIndex = 0);
+              _loadUserName();
             });
           }
         },
